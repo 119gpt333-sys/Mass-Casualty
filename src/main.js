@@ -163,7 +163,10 @@ async function addEntry() {
 
 function init() {
   if (!supabaseUrl || !supabaseKey) {
-    setDbStatus('SUPABASE_URL / SUPABASE_ANON_KEY 가 비어 있습니다. .env 를 채운 뒤 npm run dev 또는 빌드하세요.', true)
+    setDbStatus(
+      'Supabase URL/키가 비어 있습니다. 로컬: Mass-Casualty 폴더의 .env 확인 후 npm run dev 재시작. 배포(Vercel): 프로젝트 Environment Variables에 SUPABASE_URL·SUPABASE_ANON_KEY 등록 후 Redeploy.',
+      true
+    )
     return
   }
 
