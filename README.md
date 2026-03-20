@@ -1,15 +1,34 @@
 # Mass-Casualty
 
-다수사상자 이송 현황 기록 (정적 HTML).
+다수사상자 이송 현황 기록. [Vite](https://vitejs.dev/) + [Supabase](https://supabase.com/) 로 목록 조회·저장합니다.
+
+## Supabase DB
+
+SQL Editor에서 `supabase/mci_casualty_entries.sql` 실행 후 사용합니다.
+
+## 환경 변수
+
+프로젝트 루트에 `.env` (Git 무시):
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+`VITE_SUPABASE_*` 이름도 `vite.config.js`에서 같이 읽습니다.
 
 ## 로컬 실행
 
 ```bash
-python -m http.server 8765
+npm install
+npm run dev
 ```
 
-브라우저에서 `http://localhost:8765` 로 열기.
+브라우저에서 표시되는 주소(보통 `http://localhost:5173`)로 엽니다.  
+`python -m http.server` 만으로는 `.env`가 주입되지 않아 Supabase가 동작하지 않습니다.
 
 ## 배포 (Vercel)
 
-GitHub에 푸시한 뒤 [Vercel](https://vercel.com)에서 이 레포를 Import하면 됩니다. 루트의 `index.html`이 진입점입니다.
+1. 프로젝트 **Settings → Environment Variables**에 `SUPABASE_URL`, `SUPABASE_ANON_KEY` 등록  
+2. **Build Command:** `npm run build`  
+3. **Output Directory:** `dist`  
+
+Vercel이 Vite를 자동 감지하면 위 설정이 잡힐 수 있습니다.

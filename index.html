@@ -69,16 +69,16 @@
             <label>인계(구조)시각</label>
             <div class="time-row">
                 <input type="time" id="provideTime">
-                <button type="button" class="btn-now" onclick="setCurrentTime('provideTime')">현재</button>
+                <button type="button" class="btn-now" data-time-target="provideTime">현재</button>
             </div>
         </div>
         <div class="full-width">
             <label>중증도 분류</label>
             <div class="triage-group">
-                <button class="triage-btn red" onclick="setTriage('긴급', this)">긴급</button>
-                <button class="triage-btn yellow" onclick="setTriage('응급', this)">응급</button>
-                <button class="triage-btn green" onclick="setTriage('비응급', this)">비응급</button>
-                <button class="triage-btn black" onclick="setTriage('사망', this)">사망</button>
+                <button type="button" class="triage-btn red" data-triage="긴급">긴급</button>
+                <button type="button" class="triage-btn yellow" data-triage="응급">응급</button>
+                <button type="button" class="triage-btn green" data-triage="비응급">비응급</button>
+                <button type="button" class="triage-btn black" data-triage="사망">사망</button>
             </div>
         </div>
         <div class="full-width"><label>주증상 (손상원인)</label><input type="text" id="symptom" placeholder="의식저하, 다발성 골절"></div>
@@ -97,13 +97,14 @@
             <label>출발 시각</label>
             <div class="time-row">
                 <input type="time" id="startTime">
-                <button type="button" class="btn-now" onclick="setCurrentTime('startTime')">현재</button>
+                <button type="button" class="btn-now" data-time-target="startTime">현재</button>
             </div>
         </div>
         <div class="full-width"><label>이송 병원</label><input type="text" id="hospital" placeholder="강서성심병원"></div>
     </div>
 
-    <button onclick="addEntry()" style="margin-top:20px; background:#2980b9; color:white; height:50px; font-size:18px; cursor:pointer;">데이터 저장 및 리스트 추가</button>
+    <p id="dbStatus" style="margin:12px 0 0; font-size:13px; color:#555; min-height:1.2em;" aria-live="polite"></p>
+    <button type="button" id="btnSave" style="margin-top:8px; background:#2980b9; color:white; height:50px; font-size:18px; cursor:pointer;">데이터 저장 및 리스트 추가</button>
 
     <div class="table-container">
         <table id="dataTable">
@@ -123,54 +124,7 @@
     </div>
 </div>
 
-<script>
-    let currentTriage = "";
-
-    function setTriage(val, btn) {
-        currentTriage = val;
-        document.querySelectorAll('.triage-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
-
-    function setCurrentTime(id) {
-        const now = new Date();
-        const time = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-        document.getElementById(id).value = time;
-    }
-
-    function addEntry() {
-        const table = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
-        const row = table.insertRow(0);
-
-        const data = {
-            name: document.getElementById('name').value,
-            provider: document.getElementById('provider').value,
-            pTime: document.getElementById('provideTime').value,
-            triage: currentTriage,
-            status: document.getElementById('transferStatus').value,
-            sTime: document.getElementById('startTime').value,
-            hosp: document.getElementById('hospital').value
-        };
-
-        let color = data.triage === '긴급' ? 'var(--red)' : data.triage === '응급' ? 'var(--yellow)' : data.triage === '비응급' ? 'var(--green)' : 'var(--black)';
-        let tColor = data.triage === '응급' ? '#000' : '#fff';
-
-        row.innerHTML = `
-            <td>${table.rows.length}</td>
-            <td>${data.name}</td>
-            <td>${data.provider}<br>(${data.pTime})</td>
-            <td><span class="status-badge" style="background:${color}; color:${tColor}">${data.triage}</span></td>
-            <td>${data.status}</td>
-            <td>${data.sTime}</td>
-            <td>${data.hosp}</td>
-        `;
-
-        // 일부 필드 초기화 (연속 입력을 위해 인계자 등은 유지 가능)
-        document.getElementById('name').value = "";
-        document.getElementById('provideTime').value = "";
-        document.getElementById('startTime').value = "";
-    }
-</script>
+<script type="module" src="/src/main.js"></script>
 
 </body>
 </html>
