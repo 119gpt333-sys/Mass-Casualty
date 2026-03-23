@@ -87,6 +87,48 @@
             box-shadow: 0 2px 8px rgba(41, 128, 185, 0.35);
         }
         .landing-primary-cta:hover { filter: brightness(1.06); }
+        .landing-status { font-size: 0.85rem; min-height: 1.3em; margin: 0 0 12px; color: #555; }
+
+        .incident-tabs {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 4px 0 14px;
+            margin: 0 0 4px;
+            -webkit-overflow-scrolling: touch;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .record-incident-tabs { margin-bottom: 10px; border-bottom-color: #bdc3c7; }
+        .incident-tabs-empty {
+            font-size: 0.85rem;
+            color: #888;
+            padding: 8px 4px;
+            white-space: normal;
+        }
+        .incident-tab {
+            flex: 0 0 auto;
+            max-width: 200px;
+            padding: 10px 14px;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid #bdc3c7;
+            border-bottom: none;
+            background: #e9ecef;
+            color: #2c3e50;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: inherit;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .incident-tab:hover { background: #dee2e6; }
+        .incident-tab.active {
+            background: #2980b9;
+            color: #fff;
+            border-color: #2980b9;
+        }
 
         /* 이송 기록 화면 — 상단 사건 맥락 */
         .record-context-bar {
@@ -129,47 +171,38 @@
 </head>
 <body>
 
-<!-- 1) 사건 분류 (날짜·시간·사건요약) — 항목 제목을 누르면 이송 기록 화면으로 -->
+<!-- 1) 사건 분류 — 사건 생성 후 탭으로 이송 기록 화면 진입 -->
 <div id="view-landing" class="view container">
-    <h3 style="text-align:center; margin-top:0;">MCI-Linker</h3>
-    <p class="landing-hint">사건을 구분한 뒤, 회색 <strong>날짜·시간·사건요약</strong> 줄을 누르거나, 카드 빈 여백을 누르거나, 맨 아래 <strong>파란 다음 버튼</strong>으로 <strong>이송 현황 기록</strong> 화면으로 이동합니다. 입력란·라벨은 편집용입니다.</p>
+    <h3 style="text-align:center; margin-top:0;">MCI-Linker · 사건 분류</h3>
+    <p class="landing-hint"><strong>사건 생성</strong>을 누르면 아래에 <strong>탭</strong>이 생깁니다. 탭을 누르면 그 사건의 <strong>다수사상자 이송 현황 기록</strong>으로 들어갑니다.</p>
 
-    <div class="landing-card">
-        <button type="button" class="landing-title-btn" id="landingNavDate" aria-label="날짜 — 이송 현황 기록으로">
-            <span>날짜</span><span class="chev" aria-hidden="true">›</span>
-        </button>
-        <div class="landing-card-body">
+    <div id="incidentTabs" class="incident-tabs" role="tablist" aria-label="등록된 사건"></div>
+    <p id="landingIncidentStatus" class="landing-status" aria-live="polite"></p>
+
+    <div class="section-title">새 사건</div>
+    <div class="input-grid">
+        <div>
             <label for="incidentDate">사건 일자</label>
             <input type="date" id="incidentDate">
         </div>
-    </div>
-    <div class="landing-card">
-        <button type="button" class="landing-title-btn" id="landingNavTime" aria-label="시간 — 이송 현황 기록으로">
-            <span>시간</span><span class="chev" aria-hidden="true">›</span>
-        </button>
-        <div class="landing-card-body">
+        <div>
             <label for="incidentTime">기준 시각</label>
             <div class="time-row">
                 <input type="time" id="incidentTime">
                 <button type="button" class="btn-now" id="btnIncidentTimeNow">현재</button>
             </div>
         </div>
-    </div>
-    <div class="landing-card">
-        <button type="button" class="landing-title-btn" id="landingNavSummary" aria-label="사건요약 — 이송 현황 기록으로">
-            <span>사건요약</span><span class="chev" aria-hidden="true">›</span>
-        </button>
-        <div class="landing-card-body">
-            <label for="incidentSummary">요약 (현장·환자군 등)</label>
-            <textarea id="incidentSummary" placeholder="예: OO역 인근 다수사상, 구급대 현장 지휘"></textarea>
+        <div class="full-width">
+            <label for="incidentSummary">사건요약 (현장·환자군 등)</label>
+            <textarea id="incidentSummary" rows="3" placeholder="예: OO역 인근 다수사상, 구급대 현장 지휘" style="width:100%; box-sizing:border-box;"></textarea>
         </div>
     </div>
-
-    <button type="button" id="btnGoRecord" class="landing-primary-cta">다음 — 다수사상자 이송 현황 기록</button>
+    <button type="button" id="btnCreateIncident" class="landing-primary-cta">사건 생성</button>
 </div>
 
 <!-- 2) 다수사상자 이송 현황 기록 -->
 <div id="view-record" class="view container hidden">
+    <div id="recordIncidentTabs" class="incident-tabs record-incident-tabs" role="tablist" aria-label="사건 전환"></div>
     <div class="record-context-bar">
         <button type="button" class="btn-back" id="btnBackLanding">← 사건 분류</button>
         <div id="recordContextText" class="record-context-text"></div>

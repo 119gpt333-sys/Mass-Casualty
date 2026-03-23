@@ -4,7 +4,10 @@
 
 ## Supabase DB
 
-SQL Editor에서 `supabase/mci_casualty_entries.sql` 실행 후 사용합니다.
+SQL Editor에서 아래를 실행합니다.
+
+1. `supabase/mci_casualty_entries.sql`  
+2. `supabase/mci_incidents.sql` (사건 분류·탭용)
 
 ## 환경 변수
 

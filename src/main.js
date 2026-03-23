@@ -5,6 +5,9 @@ const supabaseKey = typeof __SUPABASE_ANON_KEY__ !== 'undefined' ? __SUPABASE_AN
 
 let supabase = null
 let currentTriage = ''
+/** @type {Array<{ id: string, incident_date: string, incident_time: string | null, summary: string, created_at: string }>} */
+let incidentsCache = []
+let currentIncidentId = null
 
 function $(id) {
   return document.getElementById(id)
@@ -58,6 +61,13 @@ function setDbStatus(msg, isError) {
   el.style.color = isError ? '#c0392b' : '#555'
 }
 
+function setLandingIncidentStatus(msg, isError) {
+  const el = $('landingIncidentStatus')
+  if (!el) return
+  el.textContent = msg || ''
+  el.style.color = isError ? '#c0392b' : '#555'
+}
+
 /** fetch 단계에서 끊길 때( CORS/오프라인/차단/URL 오류 등 ) Supabase가 주는 메시지 */
 function friendlySupabaseMessage(error) {
   if (!error) return '알 수 없는 오류'
@@ -98,20 +108,136 @@ function initLandingDefaults() {
   }
 }
 
-function updateRecordContextBar() {
+function incidentTabLabel(inc) {
+  const d = inc.incident_date || ''
+  const s = (inc.summary || '').trim()
+  const short = s ? (s.length > 16 ? `${s.slice(0, 16)}…` : s) : '요약없음'
+  return d ? `${d} · ${short}` : short
+}
+
+function renderIncidentTabs() {
+  const containers = [$('incidentTabs'), $('recordIncidentTabs')]
+  containers.forEach((container) => {
+    if (!container) return
+    container.innerHTML = ''
+    if (!incidentsCache.length) {
+      const span = document.createElement('span')
+      span.className = 'incident-tabs-empty'
+      span.textContent = '등록된 사건이 없습니다. 아래에서 사건을 생성하세요.'
+      container.appendChild(span)
+      return
+    }
+    incidentsCache.forEach((inc) => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = `incident-tab${inc.id === currentIncidentId ? ' active' : ''}`
+      btn.setAttribute('role', 'tab')
+      btn.setAttribute('aria-selected', inc.id === currentIncidentId ? 'true' : 'false')
+      btn.textContent = incidentTabLabel(inc)
+      btn.title = (inc.summary && inc.summary.trim()) || incidentTabLabel(inc)
+      btn.addEventListener('click', () => showRecordView(inc.id))
+      container.appendChild(btn)
+    })
+  })
+}
+
+async function loadIncidents() {
+  if (!supabase) {
+    incidentsCache = []
+    renderIncidentTabs()
+    setLandingIncidentStatus(
+      'Supabase URL/키가 없습니다. .env 또는 Vercel 환경 변수를 확인하세요.',
+      true
+    )
+    return
+  }
+  setLandingIncidentStatus('사건 목록 불러오는 중…', false)
+  const { data, error } = await supabase
+    .from('mci_incidents')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    const hint =
+      /relation|does not exist|schema cache/i.test(error.message || '')
+        ? ' Supabase SQL Editor에서 supabase/mci_incidents.sql 을 실행했는지 확인하세요.'
+        : ''
+    setLandingIncidentStatus(`사건 목록 실패: ${friendlySupabaseMessage(error)}${hint}`, true)
+    incidentsCache = []
+    renderIncidentTabs()
+    return
+  }
+
+  incidentsCache = data || []
+  if (currentIncidentId && !incidentsCache.some((i) => i.id === currentIncidentId)) {
+    currentIncidentId = null
+  }
+  setLandingIncidentStatus('', false)
+  renderIncidentTabs()
+}
+
+async function createIncident() {
+  if (!supabase) {
+    setLandingIncidentStatus('Supabase 설정이 없습니다. .env 또는 Vercel 환경 변수를 확인하세요.', true)
+    return
+  }
+  if (!val('incidentDate')) {
+    setLandingIncidentStatus('사건 일자를 입력하세요.', true)
+    return
+  }
+
+  const payload = {
+    incident_date: val('incidentDate'),
+    incident_time: normalizeTimeInput(val('incidentTime')),
+    summary: val('incidentSummary') || '',
+  }
+
+  setLandingIncidentStatus('사건 저장 중…', false)
+  const { data, error } = await supabase.from('mci_incidents').insert(payload).select().single()
+
+  if (error) {
+    const hint =
+      /relation|does not exist|schema cache/i.test(error.message || '')
+        ? ' supabase/mci_incidents.sql 실행 여부를 확인하세요.'
+        : ''
+    setLandingIncidentStatus(`사건 생성 실패: ${friendlySupabaseMessage(error)}${hint}`, true)
+    return
+  }
+
+  currentIncidentId = data.id
+  await loadIncidents()
+  setLandingIncidentStatus('사건이 추가되었습니다. 위 탭을 눌러 이송 기록으로 들어가세요.', false)
+}
+
+function updateRecordContextBarFromIncident(inc) {
   const el = $('recordContextText')
   if (!el) return
-  const dateStr = val('incidentDate') || '—'
-  const timeStr = val('incidentTime') || '—'
-  const sum = val('incidentSummary')
+  if (!inc) {
+    el.textContent = currentIncidentId ? `사건 ID: ${String(currentIncidentId).slice(0, 8)}…` : '—'
+    return
+  }
+  const dateStr = inc.incident_date || '—'
+  const timeStr = formatTimeDisplay(inc.incident_time) || '—'
+  const sum = (inc.summary || '').trim()
   const sumShort = sum ? (sum.length > 48 ? `${sum.slice(0, 48)}…` : sum) : '—'
   el.textContent = `${dateStr} · ${timeStr} · ${sumShort}`
 }
 
-function showRecordView() {
+function showRecordView(incidentId) {
+  if (!incidentId) {
+    setLandingIncidentStatus('사건을 먼저 생성하거나, 위 탭에서 사건을 선택하세요.', true)
+    return
+  }
+
+  currentIncidentId = incidentId
+  const inc = incidentsCache.find((i) => i.id === incidentId)
+
   $('view-landing')?.classList.add('hidden')
   $('view-record')?.classList.remove('hidden')
-  updateRecordContextBar()
+
+  updateRecordContextBarFromIncident(inc)
+  renderIncidentTabs()
+
   if (supabase) {
     setDbStatus('연결됨')
     loadEntries()
@@ -126,6 +252,7 @@ function showRecordView() {
 function showLandingView() {
   $('view-record')?.classList.add('hidden')
   $('view-landing')?.classList.remove('hidden')
+  loadIncidents()
 }
 
 function buildRowHtml(entry, indexFromNewest) {
@@ -152,11 +279,16 @@ function buildRowHtml(entry, indexFromNewest) {
 
 async function loadEntries() {
   if (!supabase) return
+  if (!currentIncidentId) {
+    setDbStatus('사건이 선택되지 않았습니다. 사건 분류에서 탭을 선택하세요.', true)
+    return
+  }
 
   setDbStatus('목록 불러오는 중…')
   const { data, error } = await supabase
     .from('mci_casualty_entries')
     .select('*')
+    .eq('incident_id', currentIncidentId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -173,12 +305,16 @@ async function loadEntries() {
     tr.innerHTML = buildRowHtml(row, i + 1)
   })
 
-  setDbStatus(data.length ? `총 ${data.length}건 (Supabase)` : '저장된 데이터 없음')
+  setDbStatus(data.length ? `총 ${data.length}건 (이 사건)` : '이 사건에 저장된 데이터 없음')
 }
 
 async function addEntry() {
   if (!supabase) {
     setDbStatus('Supabase 설정이 없습니다. .env 를 확인하세요.', true)
+    return
+  }
+  if (!currentIncidentId) {
+    setDbStatus('사건이 선택되지 않았습니다. ← 사건 분류에서 탭을 선택하세요.', true)
     return
   }
 
@@ -196,7 +332,7 @@ async function addEntry() {
     transfer_status: val('transferStatus') || '미이송',
     departure_time: normalizeTimeInput(val('startTime')),
     destination_hospital: val('hospital') || null,
-    incident_id: null,
+    incident_id: currentIncidentId,
   }
 
   setDbStatus('저장 중…')
@@ -234,20 +370,7 @@ function wireRecordForm() {
 function init() {
   initLandingDefaults()
 
-  document.querySelectorAll('.landing-title-btn').forEach((btn) => {
-    btn.addEventListener('click', () => showRecordView())
-  })
-  $('btnGoRecord')?.addEventListener('click', () => showRecordView())
-
-  const landing = $('view-landing')
-  if (landing) {
-    landing.addEventListener('click', (e) => {
-      const t = e.target
-      if (t.closest('input, textarea, select, label, .btn-now, .landing-title-btn, #btnGoRecord')) return
-      const card = t.closest('.landing-card')
-      if (card) showRecordView()
-    })
-  }
+  $('btnCreateIncident')?.addEventListener('click', createIncident)
 
   const back = $('btnBackLanding')
   if (back) back.addEventListener('click', showLandingView)
@@ -259,9 +382,10 @@ function init() {
   } else {
     supabase = null
   }
+
+  loadIncidents()
 }
 
-/* module 스크립트가 늦게 도착하면 DOMContentLoaded 를 놓칠 수 있음 */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init)
 } else {
