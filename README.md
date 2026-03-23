@@ -1,13 +1,14 @@
 # Mass-Casualty
 
-다수사상자 이송 현황 기록. [Vite](https://vitejs.dev/) + [Supabase](https://supabase.com/) 로 목록 조회·저장합니다.
+다수사상자 (이송)현황 기록. [Vite](https://vitejs.dev/) + [Supabase](https://supabase.com/) 로 목록 조회·저장합니다.
 
 ## Supabase DB
 
 SQL Editor에서 아래를 실행합니다.
 
 1. `supabase/mci_casualty_entries.sql`  
-2. `supabase/mci_incidents.sql` (사건 분류·탭용)
+2. `supabase/mci_incidents.sql` (사건 분류·탭용)  
+3. `supabase/mci_add_patient_sex_age.sql` (성별·연령 별도 컬럼 — 선택, 표 분리 표시용)
 
 ## 환경 변수
 

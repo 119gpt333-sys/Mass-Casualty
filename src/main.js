@@ -5,9 +5,14 @@ const supabaseKey = typeof __SUPABASE_ANON_KEY__ !== 'undefined' ? __SUPABASE_AN
 
 let supabase = null
 let currentTriage = ''
+let currentSex = ''
 /** @type {Array<{ id: string, incident_date: string, incident_time: string | null, summary: string, created_at: string }>} */
 let incidentsCache = []
 let currentIncidentId = null
+/** @type {string | null} */
+let editingEntryId = null
+/** @type {Array<Record<string, unknown>>} */
+let lastLoadedEntries = []
 
 function $(id) {
   return document.getElementById(id)
@@ -61,6 +66,12 @@ function setDbStatus(msg, isError) {
   el.style.color = isError ? '#c0392b' : '#555'
 }
 
+function scrollRecordOutputIntoView() {
+  requestAnimationFrame(() => {
+    $('recordOutputSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
 function setLandingIncidentStatus(msg, isError) {
   const el = $('landingIncidentStatus')
   if (!el) return
@@ -85,6 +96,193 @@ function setTriage(val, btn) {
   currentTriage = val
   document.querySelectorAll('.triage-btn').forEach((b) => b.classList.remove('active'))
   if (btn) btn.classList.add('active')
+}
+
+function setSex(v, btn) {
+  if (currentSex === v) {
+    currentSex = ''
+    document.querySelectorAll('.sex-tab').forEach((b) => b.classList.remove('active'))
+    return
+  }
+  currentSex = v
+  document.querySelectorAll('.sex-tab').forEach((b) => b.classList.remove('active'))
+  if (btn) btn.classList.add('active')
+}
+
+function buildAgeInfoPayload() {
+  const parts = []
+  if (currentSex) parts.push(currentSex)
+  const age = val('ageInfo')
+  if (age) parts.push(age)
+  const s = parts.join(' ').trim()
+  return s || null
+}
+
+/** DB patient_gender / patient_age 우선, 없으면 age_info(레거시) 파싱 */
+function displayGenderForEntry(entry) {
+  const g =
+    entry.patient_gender != null && String(entry.patient_gender).trim() !== ''
+      ? String(entry.patient_gender).trim()
+      : ''
+  if (g) return escapeHtml(g)
+  const legacy = (entry.age_info || '').trim()
+  if (legacy.startsWith('남성')) return escapeHtml('남성')
+  if (legacy.startsWith('여성')) return escapeHtml('여성')
+  return '—'
+}
+
+function displayAgeForEntry(entry) {
+  const a =
+    entry.patient_age != null && String(entry.patient_age).trim() !== ''
+      ? String(entry.patient_age).trim()
+      : ''
+  if (a) return escapeHtml(a)
+  const legacy = (entry.age_info || '').trim()
+  if (!legacy) return '—'
+  const m = legacy.match(/^(남성|여성)\s+(.+)$/)
+  if (m) return escapeHtml(m[2].trim()) || '—'
+  if (legacy === '남성' || legacy === '여성') return '—'
+  return escapeHtml(legacy)
+}
+
+function formatTimeForInput(t) {
+  if (t == null || t === '') return ''
+  const s = String(t)
+  return s.length >= 5 ? s.slice(0, 5) : s
+}
+
+function clearRecordForm() {
+  const n = $('name')
+  if (n) n.value = ''
+  const age = $('ageInfo')
+  if (age) age.value = ''
+  currentSex = ''
+  document.querySelectorAll('.sex-tab').forEach((b) => b.classList.remove('active'))
+  const loc = $('loc')
+  if (loc) loc.value = ''
+  const prov = $('provider')
+  if (prov) prov.value = ''
+  const pt = $('provideTime')
+  if (pt) pt.value = ''
+  const st = $('startTime')
+  if (st) st.value = ''
+  currentTriage = ''
+  document.querySelectorAll('.triage-btn').forEach((b) => b.classList.remove('active'))
+  const sy = $('symptom')
+  if (sy) sy.value = ''
+  const ts = $('transferStatus')
+  if (ts) ts.value = '미이송'
+  const h = $('hospital')
+  if (h) h.value = ''
+}
+
+function populateFormFromEntry(entry) {
+  const nameEl = $('name')
+  if (nameEl) nameEl.value = entry.patient_name || ''
+
+  const pa =
+    entry.patient_age != null && String(entry.patient_age).trim() !== ''
+      ? String(entry.patient_age).trim()
+      : ''
+  const ageEl = $('ageInfo')
+  if (ageEl) {
+    if (pa) {
+      ageEl.value = pa
+    } else {
+      const legacy = (entry.age_info || '').trim()
+      const m = legacy.match(/^(남성|여성)\s+(.+)$/)
+      ageEl.value = m ? m[2].trim() : legacy === '남성' || legacy === '여성' ? '' : legacy
+    }
+  }
+
+  document.querySelectorAll('.sex-tab').forEach((b) => b.classList.remove('active'))
+  currentSex = ''
+  const g = (entry.patient_gender || '').trim()
+  if (g === '남성' || g === '여성') {
+    const btn = document.querySelector(`.sex-tab[data-sex="${g}"]`)
+    setSex(g, btn)
+  } else {
+    const legacy = (entry.age_info || '').trim()
+    if (legacy.startsWith('남성')) {
+      setSex('남성', document.querySelector('.sex-tab.sex-m'))
+    } else if (legacy.startsWith('여성')) {
+      setSex('여성', document.querySelector('.sex-tab.sex-f'))
+    }
+  }
+
+  const locEl = $('loc')
+  if (locEl) locEl.value = entry.discovery_location || ''
+  const provEl = $('provider')
+  if (provEl) provEl.value = entry.provider_name || ''
+  const pTime = $('provideTime')
+  if (pTime) pTime.value = formatTimeForInput(entry.handoff_time)
+  const sTime = $('startTime')
+  if (sTime) sTime.value = formatTimeForInput(entry.departure_time)
+
+  const tl = entry.triage_level || ''
+  if (tl) {
+    let triBtn = null
+    document.querySelectorAll('.triage-btn').forEach((b) => {
+      if (b.dataset.triage === tl) triBtn = b
+    })
+    setTriage(tl, triBtn)
+  } else {
+    currentTriage = ''
+    document.querySelectorAll('.triage-btn').forEach((b) => b.classList.remove('active'))
+  }
+
+  const sym = $('symptom')
+  if (sym) sym.value = entry.symptom || ''
+  const tr = $('transferStatus')
+  if (tr) tr.value = entry.transfer_status === '이송' ? '이송' : '미이송'
+  const hosp = $('hospital')
+  if (hosp) hosp.value = entry.destination_hospital || ''
+}
+
+function openEditModal(entry) {
+  const host = $('editModalFormHost')
+  const block = $('recordFormBlock')
+  const modal = $('editModal')
+  if (!host || !block || !modal) return
+
+  editingEntryId = entry.id
+  populateFormFromEntry(entry)
+  host.appendChild(block)
+  modal.classList.remove('hidden')
+  const btn = $('btnSave')
+  if (btn) btn.textContent = '수정 저장'
+  setDbStatus('수정 후 「수정 저장」, 취소는 「닫기」.', false)
+  document.body.style.overflow = 'hidden'
+}
+
+function closeEditModal() {
+  editingEntryId = null
+  clearRecordForm()
+  const block = $('recordFormBlock')
+  const out = $('recordOutputSection')
+  const modal = $('editModal')
+  if (block && out?.parentNode) {
+    out.parentNode.insertBefore(block, out)
+  }
+  if (modal) modal.classList.add('hidden')
+  const btn = $('btnSave')
+  if (btn) btn.textContent = '데이터 저장 및 리스트 추가'
+  setDbStatus('', false)
+  document.body.style.overflow = ''
+}
+
+function handleEntryRowClick(e) {
+  const tr = e.target.closest('tr')
+  if (!tr?.dataset?.entryId) return
+  const entry = lastLoadedEntries.find((r) => r.id === tr.dataset.entryId)
+  if (entry) openEditModal(entry)
+}
+
+function handleEntryCardClick(e) {
+  const card = e.target.closest('.entry-card')
+  if (!card?.dataset?.entryId) return
+  const entry = lastLoadedEntries.find((r) => r.id === card.dataset.entryId)
+  if (entry) openEditModal(entry)
 }
 
 function setCurrentTime(id) {
@@ -302,6 +500,8 @@ function showRecordView(incidentId) {
     return
   }
 
+  closeEditModal()
+
   currentIncidentId = incidentId
   const inc = incidentsCache.find((i) => i.id === incidentId)
 
@@ -323,6 +523,7 @@ function showRecordView(incidentId) {
 }
 
 function showLandingView() {
+  closeEditModal()
   $('view-record')?.classList.add('hidden')
   $('view-landing')?.classList.remove('hidden')
   loadIncidents()
@@ -338,16 +539,46 @@ function buildRowHtml(entry, indexFromNewest) {
   const hosp = escapeHtml(entry.destination_hospital)
   const status = escapeHtml(entry.transfer_status)
   const triageEsc = escapeHtml(triage)
+  const genDisp = displayGenderForEntry(entry)
+  const ageDisp = displayAgeForEntry(entry)
+  const locDisp = escapeHtml((entry.discovery_location || '').trim()) || '—'
 
   return `
-    <td>${indexFromNewest}</td>
-    <td>${name}</td>
-    <td>${provider}<br>(${escapeHtml(pTime)})</td>
-    <td><span class="status-badge" style="background:${color}; color:${tColor}">${triageEsc || '—'}</span></td>
-    <td>${status}</td>
-    <td>${escapeHtml(sTime)}</td>
-    <td>${hosp}</td>
+    <td data-label="No">${indexFromNewest}</td>
+    <td data-label="성명">${name || '—'}</td>
+    <td data-label="성별">${genDisp}</td>
+    <td data-label="연령">${ageDisp}</td>
+    <td data-label="발견장소">${locDisp}</td>
+    <td data-label="인계">${provider || '—'}<br>(${escapeHtml(pTime)})</td>
+    <td data-label="중증도"><span class="status-badge" style="background:${color}; color:${tColor}">${triageEsc || '—'}</span></td>
+    <td data-label="이송">${status}</td>
+    <td data-label="출발">${escapeHtml(sTime)}</td>
+    <td data-label="병원">${hosp || '—'}</td>
   `
+}
+
+function buildMobileCardHtml(entry, indexFromNewest) {
+  const triage = entry.triage_level || ''
+  const { color, tColor } = triageStyle(triage)
+  const pTime = formatTimeDisplay(entry.handoff_time)
+  const sTime = formatTimeDisplay(entry.departure_time)
+  const provider = escapeHtml(entry.provider_name || '')
+  const name = escapeHtml(entry.patient_name || '')
+  const hosp = escapeHtml(entry.destination_hospital || '')
+  const status = escapeHtml(entry.transfer_status || '')
+  const triageEsc = escapeHtml(triage || '—')
+  const genDisp = displayGenderForEntry(entry)
+  const ageDisp = displayAgeForEntry(entry)
+  const loc = escapeHtml((entry.discovery_location || '').trim() || '—')
+  const pTimeEsc = escapeHtml(pTime)
+
+  const line2 = `<span class="ec-seg">${provider || '—'} (${pTimeEsc || '—'})</span><span class="ec-sep">|</span><span class="ec-seg"><span class="status-badge" style="background:${color};color:${tColor}">${triageEsc}</span></span><span class="ec-sep">|</span><span class="ec-seg">${status || '—'}</span><span class="ec-sep">|</span><span class="ec-seg">${escapeHtml(sTime) || '—'}</span><span class="ec-sep">|</span><span class="ec-seg">${hosp || '—'}</span>`
+
+  const eid = entry.id != null ? String(entry.id) : ''
+  return `<div class="entry-card data-row-clickable" data-entry-id="${eid}">
+    <div class="entry-card-line1"><span class="ec-no">${indexFromNewest}</span><span>${name || '—'}</span><span> · </span><span>${genDisp}</span><span> · </span><span>${ageDisp}</span><span> · </span><span class="ec-loc">${loc}</span></div>
+    <div class="entry-card-line2">${line2}</div>
+  </div>`
 }
 
 async function loadEntries() {
@@ -369,19 +600,28 @@ async function loadEntries() {
     return
   }
 
+  lastLoadedEntries = data
+
   const tbody = $('dataTable')?.getElementsByTagName('tbody')[0]
   if (!tbody) return
   tbody.innerHTML = ''
 
+  const cardsEl = $('entryCards')
+  if (cardsEl) cardsEl.innerHTML = ''
+
   data.forEach((row, i) => {
+    const idx = i + 1
     const tr = tbody.insertRow()
-    tr.innerHTML = buildRowHtml(row, i + 1)
+    tr.classList.add('data-row-clickable')
+    if (row.id) tr.dataset.entryId = String(row.id)
+    tr.innerHTML = buildRowHtml(row, idx)
+    if (cardsEl) cardsEl.insertAdjacentHTML('beforeend', buildMobileCardHtml(row, idx))
   })
 
   setDbStatus(data.length ? `총 ${data.length}건 (이 사건)` : '이 사건에 저장된 데이터 없음')
 }
 
-async function addEntry() {
+async function saveEntry() {
   if (!supabase) {
     setDbStatus('Supabase 설정이 없습니다. .env 를 확인하세요.', true)
     return
@@ -396,7 +636,9 @@ async function addEntry() {
 
   const payload = {
     patient_name: val('name') || '',
-    age_info: val('ageInfo') || null,
+    age_info: buildAgeInfoPayload(),
+    patient_gender: currentSex || null,
+    patient_age: val('ageInfo') || null,
     discovery_location: val('loc') || null,
     provider_name: val('provider') || null,
     handoff_time: normalizeTimeInput(val('provideTime')),
@@ -408,19 +650,36 @@ async function addEntry() {
     incident_id: currentIncidentId,
   }
 
-  setDbStatus('저장 중…')
-  const { error } = await supabase.from('mci_casualty_entries').insert(payload)
+  const isEdit = !!editingEntryId
+  setDbStatus(isEdit ? '수정 저장 중…' : '저장 중…')
+
+  const hintFn = (msg) =>
+    /patient_gender|patient_age|column|schema cache/i.test(msg || '')
+      ? ' Supabase에서 supabase/mci_add_patient_sex_age.sql 을 실행했는지 확인하세요.'
+      : ''
+
+  let error = null
+  if (isEdit) {
+    const res = await supabase.from('mci_casualty_entries').update(payload).eq('id', editingEntryId)
+    error = res.error
+  } else {
+    const res = await supabase.from('mci_casualty_entries').insert(payload)
+    error = res.error
+  }
 
   if (error) {
-    setDbStatus(`저장 실패: ${friendlySupabaseMessage(error)}`, true)
+    setDbStatus(`저장 실패: ${friendlySupabaseMessage(error)}${hintFn(error.message)}`, true)
     if (btn) btn.disabled = false
     return
   }
 
-  $('name').value = ''
-  $('provideTime').value = ''
-  $('startTime').value = ''
+  if (isEdit) {
+    closeEditModal()
+  } else {
+    clearRecordForm()
+  }
   await loadEntries()
+  scrollRecordOutputIntoView()
   if (btn) btn.disabled = false
 }
 
@@ -436,8 +695,23 @@ function wireRecordForm() {
   document.querySelectorAll('.triage-btn').forEach((b) => {
     b.addEventListener('click', () => setTriage(b.dataset.triage, b))
   })
+  document.querySelectorAll('.sex-tab').forEach((b) => {
+    b.addEventListener('click', () => setSex(b.dataset.sex, b))
+  })
   const saveBtn = $('btnSave')
-  if (saveBtn) saveBtn.addEventListener('click', addEntry)
+  if (saveBtn) saveBtn.addEventListener('click', saveEntry)
+
+  $('btnCancelEdit')?.addEventListener('click', closeEditModal)
+  $('editModalBackdrop')?.addEventListener('click', closeEditModal)
+
+  $('dataTable')?.querySelector('tbody')?.addEventListener('click', handleEntryRowClick)
+  $('entryCards')?.addEventListener('click', handleEntryCardClick)
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && editingEntryId && !$('editModal')?.classList.contains('hidden')) {
+      closeEditModal()
+    }
+  })
 }
 
 function init() {

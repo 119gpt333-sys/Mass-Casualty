@@ -3,14 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCI-Linker: 정밀 이송 관리</title>
+    <title>다수사상자 (이송)현황</title>
     <style>
         :root { --red: #ff4d4d; --yellow: #ffcc00; --green: #2ecc71; --black: #2c3e50; }
-        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; margin: 15px; background: #f0f2f5; font-size: 14px; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; margin: 15px; background: #f0f2f5; font-size: 14px; line-height: 1.45; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        /* 페이지 상단 제목 — 본문(14px)보다 확실히 크게 */
+        .page-title {
+            text-align: center;
+            margin: 0 0 10px;
+            font-size: clamp(1.45rem, 4.5vw, 1.95rem);
+            font-weight: 800;
+            line-height: 1.2;
+            color: #152028;
+            letter-spacing: -0.03em;
+        }
         
         /* 섹션 구분 */
-        .section-title { background: #34495e; color: white; padding: 8px 12px; border-radius: 4px; margin: 15px 0 10px 0; font-size: 0.9rem; }
+        .section-title { background: #34495e; color: white; padding: 10px 14px; border-radius: 4px; margin: 18px 0 10px 0; font-size: 1.08rem; font-weight: 700; }
         
         .input-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .full-width { grid-column: span 2; }
@@ -31,12 +42,181 @@
         .red { background: var(--red); } .yellow { background: var(--yellow); color: #000; } 
         .green { background: var(--green); } .black { background: var(--black); }
 
-        /* 테이블 스타일 */
-        .table-container { overflow-x: auto; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 12px; }
-        th { background: #f8f9fa; position: sticky; top: 0; }
+        .sex-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+        .sex-tab {
+            border: 2px solid #bdc3c7;
+            cursor: pointer;
+            min-height: 46px;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 8px;
+            background: #ecf0f1;
+            color: #2c3e50;
+            opacity: 0.55;
+            font-family: inherit;
+        }
+        .sex-tab.active { opacity: 1; outline: 2px solid #2c3e50; }
+        .sex-tab.sex-m.active { background: #3498db; border-color: #2980b9; color: #fff; }
+        .sex-tab.sex-f.active { background: #9b59b6; border-color: #8e44ad; color: #fff; }
+
+        /* 테이블 — 세로 스크롤 위주, 셀 줄바꿈으로 가로 스크롤 최소화 */
+        .record-output-section {
+            scroll-margin-top: 16px;
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid #dee2e6;
+        }
+        .record-list-heading { margin-top: 0; }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 8px;
+            max-height: min(55vh, 520px);
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 0;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 5px;
+            text-align: center;
+            font-size: 11px;
+            vertical-align: middle;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            hyphens: auto;
+        }
+        th { background: #f8f9fa; position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 #ddd; }
+        th:nth-child(1), td:nth-child(1) { width: 30px; }
+        th:nth-child(2), td:nth-child(2) { width: 10%; }
+        th:nth-child(3), td:nth-child(3) { width: 8%; }
+        th:nth-child(4), td:nth-child(4) { width: 8%; }
+        th:nth-child(5), td:nth-child(5) { width: 12%; }
+        th:nth-child(6), td:nth-child(6) { width: 14%; }
+        th:nth-child(7), td:nth-child(7) { width: 9%; }
+        th:nth-child(8), td:nth-child(8) { width: 7%; }
+        th:nth-child(9), td:nth-child(9) { width: 7%; }
+        th:nth-child(10), td:nth-child(10) { width: auto; }
         .status-badge { padding: 3px 6px; border-radius: 3px; font-weight: bold; color: white; display: inline-block; }
+
+        /* 데스크톱만 표 / 모바일만 카드 */
+        .entry-cards { display: none; }
+        .entry-card {
+            border: 1px solid #cfd8dc;
+            border-radius: 10px;
+            padding: 12px 14px;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            text-align: left;
+        }
+        .entry-card-line1 {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.45;
+            color: #1a237e;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #e3f2fd;
+        }
+        .entry-card-line2 {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 0;
+            font-size: 14px;
+            line-height: 1.55;
+            color: #263238;
+        }
+        .entry-card-line2 .ec-seg {
+            display: inline;
+        }
+        .entry-card-line2 .ec-sep { color: #90a4ae; margin: 0 6px; font-weight: normal; }
+        tr.data-row-clickable { cursor: pointer; }
+        tr.data-row-clickable:hover { background: #f0f7ff !important; }
+        .entry-card.data-row-clickable { cursor: pointer; }
+        .entry-card.data-row-clickable:active { filter: brightness(0.97); }
+
+        .edit-modal.hidden { display: none !important; }
+        .edit-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 400;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .edit-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .edit-modal-sheet {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 900px;
+            max-height: calc(100vh - 20px);
+            overflow-y: auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.22);
+            margin-top: max(8px, env(safe-area-inset-top));
+            -webkit-overflow-scrolling: touch;
+        }
+        .edit-modal-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 2px solid #2980b9;
+            position: sticky;
+            top: 0;
+            background: linear-gradient(#fff, #f8fbfd);
+            z-index: 2;
+        }
+        .edit-modal-toolbar strong { font-size: 1.05rem; color: #1a252f; }
+        .btn-cancel-edit {
+            width: auto;
+            flex-shrink: 0;
+            padding: 8px 16px;
+            min-height: 40px;
+            background: #7f8c8d;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-cancel-edit:hover { filter: brightness(1.05); }
+        .edit-modal-form-host { padding: 8px 14px 20px; }
+
+        .ec-no {
+            flex-shrink: 0;
+            min-width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #2980b9;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+        .ec-loc { font-weight: 500; color: #37474f; }
 
         .view.hidden { display: none !important; }
 
@@ -208,13 +388,27 @@
 
         @media (max-width: 480px) {
             body { margin: 10px; font-size: 14px; }
+            .page-title { font-size: clamp(1.35rem, 5.5vw, 1.65rem); margin-bottom: 8px; }
+            .section-title { font-size: 1rem; padding: 9px 12px; }
             .container { padding: 14px; border-radius: 10px; }
             .input-grid { grid-template-columns: 1fr; }
             .full-width { grid-column: span 1; }
             .triage-group { grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .triage-btn { height: auto; min-height: 48px; font-size: 15px; }
-            /* 테이블은 가로 스크롤 유지(800px) — 열 너비·가독성 우선 */
-            th, td { font-size: 11px; padding: 6px; }
+            th, td { font-size: 10px; padding: 5px 4px; }
+            .table-container.desktop-table-wrap { display: none !important; }
+            .entry-cards {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                margin-top: 8px;
+                max-height: min(62vh, 560px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
+            .entry-card-line1 { font-size: 16px; }
+            .entry-card-line2 { font-size: 15px; }
         }
     </style>
 </head>
@@ -222,8 +416,8 @@
 
 <!-- 1) 사건 분류 — 사건 생성 후 탭으로 이송 기록 화면 진입 -->
 <div id="view-landing" class="view container">
-    <h3 style="text-align:center; margin-top:0;">MCI-Linker · 사건 분류</h3>
-    <p class="landing-hint"><strong>사건 생성</strong>을 누르면 아래에 <strong>탭</strong>이 생깁니다. 탭을 누르면 그 사건의 <strong>다수사상자 이송 현황 기록</strong>으로 들어갑니다.</p>
+    <h1 class="page-title">MCI-Linker · 사건 분류</h1>
+    <p class="landing-hint"><strong>사건 생성</strong>을 누르면 아래에 <strong>탭</strong>이 생깁니다. 탭을 누르면 그 사건의 <strong>다수사상자 (이송)현황</strong> 기록 화면으로 들어갑니다.</p>
 
     <div id="incidentTabs" class="incident-tabs" role="tablist" aria-label="등록된 사건"></div>
     <p id="landingIncidentStatus" class="landing-status" aria-live="polite"></p>
@@ -255,19 +449,38 @@
     </div>
 </div>
 
-<!-- 2) 다수사상자 이송 현황 기록 -->
+<!-- 2) 다수사상자 (이송)현황 기록 -->
 <div id="view-record" class="view container hidden">
     <div id="recordIncidentTabs" class="incident-tabs record-incident-tabs" role="tablist" aria-label="사건 전환"></div>
     <div class="record-context-bar">
         <button type="button" class="btn-back" id="btnBackLanding">← 사건 분류</button>
         <div id="recordContextText" class="record-context-text"></div>
     </div>
-    <h3 style="text-align:center; margin-top:0;">🚑 다수사상자 이송 현황 기록</h3>
-    
+    <h1 class="page-title">🚑 다수사상자 (이송)현황</h1>
+
+    <div id="editModal" class="edit-modal hidden" role="dialog" aria-modal="true" aria-labelledby="editModalTitleText">
+        <div class="edit-modal-backdrop" id="editModalBackdrop" aria-hidden="true"></div>
+        <div class="edit-modal-sheet">
+            <div class="edit-modal-toolbar">
+                <strong id="editModalTitleText">데이터 수정</strong>
+                <button type="button" class="btn-cancel-edit" id="btnCancelEdit">닫기</button>
+            </div>
+            <div id="editModalFormHost" class="edit-modal-form-host"></div>
+        </div>
+    </div>
+
+    <div id="recordFormBlock">
     <div class="section-title">1. 사상자 및 발견 정보</div>
     <div class="input-grid">
         <div><label>성명(국적)</label><input type="text" id="name" placeholder="홍길동"></div>
-        <div><label>성별(연령)</label><input type="text" id="ageInfo" placeholder="M(36)"></div>
+        <div><label>연령</label><input type="text" id="ageInfo" inputmode="numeric" placeholder="예: 36" autocomplete="off"></div>
+        <div class="full-width">
+            <label>성별</label>
+            <div class="sex-group" role="group" aria-label="성별 선택">
+                <button type="button" class="sex-tab sex-m" data-sex="남성">남성</button>
+                <button type="button" class="sex-tab sex-f" data-sex="여성">여성</button>
+            </div>
+        </div>
         <div class="full-width"><label>발견 장소</label><input type="text" id="loc" placeholder="사고현장 본관 1층"></div>
     </div>
 
@@ -314,22 +527,30 @@
 
     <p id="dbStatus" style="margin:12px 0 0; font-size:13px; color:#555; min-height:1.2em;" aria-live="polite"></p>
     <button type="button" id="btnSave" style="margin-top:8px; background:#2980b9; color:white; height:50px; font-size:18px; cursor:pointer;">데이터 저장 및 리스트 추가</button>
+    </div><!-- /recordFormBlock -->
 
-    <div class="table-container">
-        <table id="dataTable">
-            <thead>
-                <tr>
-                    <th>No</th>
-                    <th>성명</th>
-                    <th>인계자(시각)</th>
-                    <th>중증도</th>
-                    <th>이송여부</th>
-                    <th>출발시각</th>
-                    <th>이송병원</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+    <div id="recordOutputSection" class="record-output-section" tabindex="-1">
+        <div class="section-title record-list-heading">저장된 사상자 목록 <span style="font-weight:normal;font-size:0.82em;opacity:0.95">(표·카드를 누르면 수정)</span></div>
+        <div class="table-container desktop-table-wrap">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>성명</th>
+                        <th>성별</th>
+                        <th>연령</th>
+                        <th>발견장소</th>
+                        <th>인계자(시각)</th>
+                        <th>중증도</th>
+                        <th>이송여부</th>
+                        <th>출발시각</th>
+                        <th>이송병원</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="entryCards" class="entry-cards" aria-label="저장된 사상자 목록(모바일)"></div>
     </div>
 </div>
 <!-- /view-record -->
