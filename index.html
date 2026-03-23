@@ -38,6 +38,83 @@
         th { background: #f8f9fa; position: sticky; top: 0; }
         .status-badge { padding: 3px 6px; border-radius: 3px; font-weight: bold; color: white; display: inline-block; }
 
+        .view.hidden { display: none !important; }
+
+        /* 첫 화면 — 사건 분류 */
+        .landing-hint { font-size: 0.85rem; color: #666; margin: 0 0 16px; line-height: 1.45; }
+        .landing-card {
+            border: 1px solid #dde1e6;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            background: #fafbfc;
+        }
+        .landing-title-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 14px;
+            min-height: 52px;
+            border: none;
+            background: #34495e;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+        }
+        .landing-title-btn:hover { filter: brightness(1.06); }
+        .landing-title-btn .chev { font-size: 1.35rem; opacity: 0.9; font-weight: normal; }
+        .landing-card-body { padding: 12px 14px 14px; background: #fff; }
+        .landing-card-body textarea { width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical; }
+        .landing-card { cursor: pointer; }
+        .landing-card :is(input, textarea, select, label, .btn-now) { cursor: auto; }
+        .landing-primary-cta {
+            width: 100%;
+            margin-top: 8px;
+            padding: 16px 18px;
+            min-height: 54px;
+            border: none;
+            border-radius: 10px;
+            background: #2980b9;
+            color: #fff;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 2px 8px rgba(41, 128, 185, 0.35);
+        }
+        .landing-primary-cta:hover { filter: brightness(1.06); }
+
+        /* 이송 기록 화면 — 상단 사건 맥락 */
+        .record-context-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            border: 1px solid #dde4e8;
+        }
+        .btn-back {
+            flex-shrink: 0;
+            width: auto;
+            padding: 8px 14px;
+            background: #7f8c8d;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-back:hover { filter: brightness(1.05); }
+        .record-context-text { flex: 1; min-width: 0; font-size: 0.85rem; color: #2c3e50; line-height: 1.4; word-break: break-word; }
+
         @media (max-width: 480px) {
             body { margin: 10px; font-size: 14px; }
             .container { padding: 14px; border-radius: 10px; }
@@ -52,7 +129,51 @@
 </head>
 <body>
 
-<div class="container">
+<!-- 1) 사건 분류 (날짜·시간·사건요약) — 항목 제목을 누르면 이송 기록 화면으로 -->
+<div id="view-landing" class="view container">
+    <h3 style="text-align:center; margin-top:0;">MCI-Linker</h3>
+    <p class="landing-hint">사건을 구분한 뒤, 회색 <strong>날짜·시간·사건요약</strong> 줄을 누르거나, 카드 빈 여백을 누르거나, 맨 아래 <strong>파란 다음 버튼</strong>으로 <strong>이송 현황 기록</strong> 화면으로 이동합니다. 입력란·라벨은 편집용입니다.</p>
+
+    <div class="landing-card">
+        <button type="button" class="landing-title-btn" id="landingNavDate" aria-label="날짜 — 이송 현황 기록으로">
+            <span>날짜</span><span class="chev" aria-hidden="true">›</span>
+        </button>
+        <div class="landing-card-body">
+            <label for="incidentDate">사건 일자</label>
+            <input type="date" id="incidentDate">
+        </div>
+    </div>
+    <div class="landing-card">
+        <button type="button" class="landing-title-btn" id="landingNavTime" aria-label="시간 — 이송 현황 기록으로">
+            <span>시간</span><span class="chev" aria-hidden="true">›</span>
+        </button>
+        <div class="landing-card-body">
+            <label for="incidentTime">기준 시각</label>
+            <div class="time-row">
+                <input type="time" id="incidentTime">
+                <button type="button" class="btn-now" id="btnIncidentTimeNow">현재</button>
+            </div>
+        </div>
+    </div>
+    <div class="landing-card">
+        <button type="button" class="landing-title-btn" id="landingNavSummary" aria-label="사건요약 — 이송 현황 기록으로">
+            <span>사건요약</span><span class="chev" aria-hidden="true">›</span>
+        </button>
+        <div class="landing-card-body">
+            <label for="incidentSummary">요약 (현장·환자군 등)</label>
+            <textarea id="incidentSummary" placeholder="예: OO역 인근 다수사상, 구급대 현장 지휘"></textarea>
+        </div>
+    </div>
+
+    <button type="button" id="btnGoRecord" class="landing-primary-cta">다음 — 다수사상자 이송 현황 기록</button>
+</div>
+
+<!-- 2) 다수사상자 이송 현황 기록 -->
+<div id="view-record" class="view container hidden">
+    <div class="record-context-bar">
+        <button type="button" class="btn-back" id="btnBackLanding">← 사건 분류</button>
+        <div id="recordContextText" class="record-context-text"></div>
+    </div>
     <h3 style="text-align:center; margin-top:0;">🚑 다수사상자 이송 현황 기록</h3>
     
     <div class="section-title">1. 사상자 및 발견 정보</div>
@@ -123,6 +244,7 @@
         </table>
     </div>
 </div>
+<!-- /view-record -->
 
 <script type="module" src="/src/main.js"></script>
 

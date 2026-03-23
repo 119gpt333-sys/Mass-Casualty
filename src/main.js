@@ -58,6 +58,19 @@ function setDbStatus(msg, isError) {
   el.style.color = isError ? '#c0392b' : '#555'
 }
 
+/** fetch 단계에서 끊길 때( CORS/오프라인/차단/URL 오류 등 ) Supabase가 주는 메시지 */
+function friendlySupabaseMessage(error) {
+  if (!error) return '알 수 없는 오류'
+  const raw = error.message || String(error)
+  if (/failed to fetch/i.test(raw) || /networkerror|load failed/i.test(raw)) {
+    return (
+      '네트워크 연결 실패: 브라우저가 Supabase 서버에 요청을 보내지 못했습니다. ' +
+      '인터넷·광고/추적 차단 확장·회사망 방화벽, Vercel 환경 변수(SUPABASE_URL·SUPABASE_ANON_KEY) 누락 후 재배포, Supabase 프로젝트 일시정지 여부를 확인하세요.'
+    )
+  }
+  return raw
+}
+
 function setTriage(val, btn) {
   currentTriage = val
   document.querySelectorAll('.triage-btn').forEach((b) => b.classList.remove('active'))
@@ -72,6 +85,47 @@ function setCurrentTime(id) {
     now.getMinutes().toString().padStart(2, '0')
   const el = $(id)
   if (el) el.value = time
+}
+
+function initLandingDefaults() {
+  const dateEl = $('incidentDate')
+  if (dateEl && !dateEl.value) {
+    dateEl.value = new Date().toISOString().slice(0, 10)
+  }
+  const timeEl = $('incidentTime')
+  if (timeEl && !timeEl.value) {
+    setCurrentTime('incidentTime')
+  }
+}
+
+function updateRecordContextBar() {
+  const el = $('recordContextText')
+  if (!el) return
+  const dateStr = val('incidentDate') || '—'
+  const timeStr = val('incidentTime') || '—'
+  const sum = val('incidentSummary')
+  const sumShort = sum ? (sum.length > 48 ? `${sum.slice(0, 48)}…` : sum) : '—'
+  el.textContent = `${dateStr} · ${timeStr} · ${sumShort}`
+}
+
+function showRecordView() {
+  $('view-landing')?.classList.add('hidden')
+  $('view-record')?.classList.remove('hidden')
+  updateRecordContextBar()
+  if (supabase) {
+    setDbStatus('연결됨')
+    loadEntries()
+  } else {
+    setDbStatus(
+      'Supabase URL/키가 비어 있습니다. 로컬: Mass-Casualty 폴더의 .env 확인 후 npm run dev 재시작. 배포(Vercel): 프로젝트 Environment Variables에 SUPABASE_URL·SUPABASE_ANON_KEY 등록 후 Redeploy.',
+      true
+    )
+  }
+}
+
+function showLandingView() {
+  $('view-record')?.classList.add('hidden')
+  $('view-landing')?.classList.remove('hidden')
 }
 
 function buildRowHtml(entry, indexFromNewest) {
@@ -106,7 +160,7 @@ async function loadEntries() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    setDbStatus(`불러오기 실패: ${error.message}`, true)
+    setDbStatus(`불러오기 실패: ${friendlySupabaseMessage(error)}`, true)
     return
   }
 
@@ -149,7 +203,7 @@ async function addEntry() {
   const { error } = await supabase.from('mci_casualty_entries').insert(payload)
 
   if (error) {
-    setDbStatus(`저장 실패: ${error.message}`, true)
+    setDbStatus(`저장 실패: ${friendlySupabaseMessage(error)}`, true)
     if (btn) btn.disabled = false
     return
   }
@@ -161,28 +215,55 @@ async function addEntry() {
   if (btn) btn.disabled = false
 }
 
-function init() {
-  if (!supabaseUrl || !supabaseKey) {
-    setDbStatus(
-      'Supabase URL/키가 비어 있습니다. 로컬: Mass-Casualty 폴더의 .env 확인 후 npm run dev 재시작. 배포(Vercel): 프로젝트 Environment Variables에 SUPABASE_URL·SUPABASE_ANON_KEY 등록 후 Redeploy.',
-      true
-    )
-    return
-  }
-
-  supabase = createClient(supabaseUrl, supabaseKey)
-  setDbStatus('연결됨')
-
+function wireRecordForm() {
   document.querySelectorAll('.btn-now').forEach((b) => {
+    if (b.id === 'btnIncidentTimeNow') return
     b.addEventListener('click', () => setCurrentTime(b.dataset.timeTarget))
   })
+  const incidentNow = $('btnIncidentTimeNow')
+  if (incidentNow) {
+    incidentNow.addEventListener('click', () => setCurrentTime('incidentTime'))
+  }
   document.querySelectorAll('.triage-btn').forEach((b) => {
     b.addEventListener('click', () => setTriage(b.dataset.triage, b))
   })
   const saveBtn = $('btnSave')
   if (saveBtn) saveBtn.addEventListener('click', addEntry)
-
-  loadEntries()
 }
 
-document.addEventListener('DOMContentLoaded', init)
+function init() {
+  initLandingDefaults()
+
+  document.querySelectorAll('.landing-title-btn').forEach((btn) => {
+    btn.addEventListener('click', () => showRecordView())
+  })
+  $('btnGoRecord')?.addEventListener('click', () => showRecordView())
+
+  const landing = $('view-landing')
+  if (landing) {
+    landing.addEventListener('click', (e) => {
+      const t = e.target
+      if (t.closest('input, textarea, select, label, .btn-now, .landing-title-btn, #btnGoRecord')) return
+      const card = t.closest('.landing-card')
+      if (card) showRecordView()
+    })
+  }
+
+  const back = $('btnBackLanding')
+  if (back) back.addEventListener('click', showLandingView)
+
+  wireRecordForm()
+
+  if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey)
+  } else {
+    supabase = null
+  }
+}
+
+/* module 스크립트가 늦게 도착하면 DOMContentLoaded 를 놓칠 수 있음 */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
