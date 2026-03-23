@@ -139,6 +139,79 @@ function renderIncidentTabs() {
       container.appendChild(btn)
     })
   })
+  refreshIncidentDeleteSelect()
+}
+
+function refreshIncidentDeleteSelect() {
+  const sel = $('incidentDeleteSelect')
+  const delBtn = $('btnDeleteIncident')
+  if (!sel) return
+
+  const prev = sel.value
+  sel.innerHTML = ''
+
+  if (!incidentsCache.length) {
+    const o = document.createElement('option')
+    o.value = ''
+    o.textContent = '삭제할 사건 없음'
+    sel.appendChild(o)
+    sel.disabled = true
+    if (delBtn) delBtn.disabled = true
+    return
+  }
+
+  sel.disabled = false
+  if (delBtn) delBtn.disabled = false
+
+  incidentsCache.forEach((inc) => {
+    const o = document.createElement('option')
+    o.value = inc.id
+    o.textContent = incidentTabLabel(inc)
+    sel.appendChild(o)
+  })
+
+  if (prev && incidentsCache.some((i) => i.id === prev)) {
+    sel.value = prev
+  } else if (currentIncidentId && incidentsCache.some((i) => i.id === currentIncidentId)) {
+    sel.value = currentIncidentId
+  }
+}
+
+async function deleteSelectedIncident() {
+  if (!supabase) {
+    setLandingIncidentStatus('Supabase 설정이 없습니다.', true)
+    return
+  }
+  const sel = $('incidentDeleteSelect')
+  const id = sel?.value
+  if (!id || !incidentsCache.some((i) => i.id === id)) {
+    setLandingIncidentStatus('삭제할 사건을 선택하세요.', true)
+    return
+  }
+
+  const label = sel.options[sel.selectedIndex]?.textContent || id
+  if (
+    !confirm(
+      `「${label}」사건을 삭제할까요?\n\n이송 기록 행은 DB에 남을 수 있습니다(incident_id만 유지).`
+    )
+  ) {
+    return
+  }
+
+  setLandingIncidentStatus('사건 삭제 중…', false)
+  const { error } = await supabase.from('mci_incidents').delete().eq('id', id)
+
+  if (error) {
+    setLandingIncidentStatus(`삭제 실패: ${friendlySupabaseMessage(error)}`, true)
+    return
+  }
+
+  if (currentIncidentId === id) {
+    currentIncidentId = null
+  }
+
+  await loadIncidents()
+  setLandingIncidentStatus('사건을 삭제했습니다.', false)
 }
 
 async function loadIncidents() {
@@ -371,6 +444,7 @@ function init() {
   initLandingDefaults()
 
   $('btnCreateIncident')?.addEventListener('click', createIncident)
+  $('btnDeleteIncident')?.addEventListener('click', deleteSelectedIncident)
 
   const back = $('btnBackLanding')
   if (back) back.addEventListener('click', showLandingView)

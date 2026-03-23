@@ -130,6 +130,55 @@
             border-color: #2980b9;
         }
 
+        .landing-delete-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #e9ecef;
+        }
+        .landing-delete-select {
+            max-width: min(240px, 58vw);
+            font-size: 12px;
+            padding: 5px 8px;
+            width: auto;
+            flex: 1 1 auto;
+            min-width: 0;
+            border-radius: 4px;
+        }
+        .landing-delete-btn {
+            width: auto;
+            flex-shrink: 0;
+            font-size: 12px;
+            padding: 5px 12px;
+            min-height: 32px;
+            background: #c0392b;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .landing-delete-btn:hover { filter: brightness(1.05); }
+        .landing-delete-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            filter: none;
+        }
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
         /* 이송 기록 화면 — 상단 사건 맥락 */
         .record-context-bar {
             display: flex;
@@ -198,6 +247,12 @@
         </div>
     </div>
     <button type="button" id="btnCreateIncident" class="landing-primary-cta">사건 생성</button>
+
+    <div class="landing-delete-bar">
+        <label for="incidentDeleteSelect" class="visually-hidden">삭제할 사건</label>
+        <select id="incidentDeleteSelect" class="landing-delete-select" aria-label="삭제할 사건 선택"></select>
+        <button type="button" id="btnDeleteIncident" class="landing-delete-btn">삭제</button>
+    </div>
 </div>
 
 <!-- 2) 다수사상자 이송 현황 기록 -->
