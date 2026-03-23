@@ -1,6 +1,6 @@
 # Mass-Casualty
 
-다수사상자 (이송)현황 기록. [Vite](https://vitejs.dev/) + [Supabase](https://supabase.com/) 로 목록 조회·저장합니다.
+다수사상자 (이송)현황 기록. [Vite](https://vitejs.dev/) + [Supabase](https://supabase.com/) 로 목록 조회·저장합니다. 이송 기록 화면에서 **엑셀(.xlsx) 저장**으로 선택한 사건의 사상자 목록을 보낼 수 있습니다.
 
 ## Supabase DB
 

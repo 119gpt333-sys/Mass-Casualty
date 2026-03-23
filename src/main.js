@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import * as XLSX from 'xlsx'
 
 const supabaseUrl = typeof __SUPABASE_URL__ !== 'undefined' ? __SUPABASE_URL__ : ''
 const supabaseKey = typeof __SUPABASE_ANON_KEY__ !== 'undefined' ? __SUPABASE_ANON_KEY__ : ''
@@ -145,6 +146,32 @@ function displayAgeForEntry(entry) {
   return escapeHtml(legacy)
 }
 
+function entryGenderPlain(entry) {
+  const g =
+    entry.patient_gender != null && String(entry.patient_gender).trim() !== ''
+      ? String(entry.patient_gender).trim()
+      : ''
+  if (g) return g
+  const legacy = (entry.age_info || '').trim()
+  if (legacy.startsWith('남성')) return '남성'
+  if (legacy.startsWith('여성')) return '여성'
+  return ''
+}
+
+function entryAgePlain(entry) {
+  const a =
+    entry.patient_age != null && String(entry.patient_age).trim() !== ''
+      ? String(entry.patient_age).trim()
+      : ''
+  if (a) return a
+  const legacy = (entry.age_info || '').trim()
+  if (!legacy) return ''
+  const m = legacy.match(/^(남성|여성)\s+(.+)$/)
+  if (m) return m[2].trim()
+  if (legacy === '남성' || legacy === '여성') return ''
+  return legacy
+}
+
 function formatTimeForInput(t) {
   if (t == null || t === '') return ''
   const s = String(t)
@@ -283,6 +310,57 @@ function handleEntryCardClick(e) {
   if (!card?.dataset?.entryId) return
   const entry = lastLoadedEntries.find((r) => r.id === card.dataset.entryId)
   if (entry) openEditModal(entry)
+}
+
+async function exportIncidentEntriesToExcel() {
+  if (!supabase || !currentIncidentId) {
+    setDbStatus('사건을 선택한 뒤 이송 기록 화면에서 다시 시도하세요.', true)
+    return
+  }
+
+  setDbStatus('엑셀 파일 준비 중…', false)
+  const { data, error } = await supabase
+    .from('mci_casualty_entries')
+    .select('*')
+    .eq('incident_id', currentIncidentId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    setDbStatus(`엑셀보내기 실패: ${friendlySupabaseMessage(error)}`, true)
+    return
+  }
+  if (!data?.length) {
+    setDbStatus('저장된 사상자 데이터가 없습니다.', true)
+    return
+  }
+
+  const rows = data.map((entry, i) => ({
+    No: i + 1,
+    성명: entry.patient_name ?? '',
+    성별: entryGenderPlain(entry),
+    연령: entryAgePlain(entry),
+    발견장소: entry.discovery_location ?? '',
+    인계자: entry.provider_name ?? '',
+    인계시각: formatTimeDisplay(entry.handoff_time) || '',
+    중증도: entry.triage_level ?? '',
+    주증상: entry.symptom ?? '',
+    이송여부: entry.transfer_status ?? '',
+    출발시각: formatTimeDisplay(entry.departure_time) || '',
+    이송병원: entry.destination_hospital ?? '',
+    등록일시: entry.created_at
+      ? String(entry.created_at).replace('T', ' ').slice(0, 19)
+      : '',
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '이송현황')
+
+  const d = new Date()
+  const ds = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
+  const fname = `다수사상자_이송현황_${ds}.xlsx`
+  XLSX.writeFile(wb, fname)
+  setDbStatus(`엑셀 저장 완료: ${fname} (${data.length}건)`, false)
 }
 
 function setCurrentTime(id) {
@@ -584,7 +662,7 @@ function buildMobileCardHtml(entry, indexFromNewest) {
 async function loadEntries() {
   if (!supabase) return
   if (!currentIncidentId) {
-    setDbStatus('사건이 선택되지 않았습니다. 사건 분류에서 탭을 선택하세요.', true)
+    setDbStatus('사건이 선택되지 않았습니다. 세이브보드에서 탭을 선택하세요.', true)
     return
   }
 
@@ -627,7 +705,7 @@ async function saveEntry() {
     return
   }
   if (!currentIncidentId) {
-    setDbStatus('사건이 선택되지 않았습니다. ← 사건 분류에서 탭을 선택하세요.', true)
+    setDbStatus('사건이 선택되지 않았습니다. ← 세이브보드에서 탭을 선택하세요.', true)
     return
   }
 
@@ -719,6 +797,7 @@ function init() {
 
   $('btnCreateIncident')?.addEventListener('click', createIncident)
   $('btnDeleteIncident')?.addEventListener('click', deleteSelectedIncident)
+  $('btnExportExcel')?.addEventListener('click', exportIncidentEntriesToExcel)
 
   const back = $('btnBackLanding')
   if (back) back.addEventListener('click', showLandingView)
