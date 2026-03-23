@@ -201,6 +201,8 @@ function clearRecordForm() {
   if (ts) ts.value = '미이송'
   const h = $('hospital')
   if (h) h.value = ''
+  const tv = $('transferVehicle')
+  if (tv) tv.value = ''
 }
 
 function populateFormFromEntry(entry) {
@@ -264,6 +266,8 @@ function populateFormFromEntry(entry) {
   if (tr) tr.value = entry.transfer_status === '이송' ? '이송' : '미이송'
   const hosp = $('hospital')
   if (hosp) hosp.value = entry.destination_hospital || ''
+  const tv = $('transferVehicle')
+  if (tv) tv.value = entry.transfer_vehicle || ''
 }
 
 function openEditModal(entry) {
@@ -339,14 +343,15 @@ async function exportIncidentEntriesToExcel() {
     성명: entry.patient_name ?? '',
     성별: entryGenderPlain(entry),
     연령: entryAgePlain(entry),
-    발견장소: entry.discovery_location ?? '',
+    주증상: entry.symptom ?? '',
+    이송병원: entry.destination_hospital ?? '',
+    중증도: entry.triage_level ?? '',
+    발견지점: entry.discovery_location ?? '',
+    이송수단: entry.transfer_vehicle ?? '',
+    출발시간: formatTimeDisplay(entry.departure_time) || '',
     인계자: entry.provider_name ?? '',
     인계시각: formatTimeDisplay(entry.handoff_time) || '',
-    중증도: entry.triage_level ?? '',
-    주증상: entry.symptom ?? '',
     이송여부: entry.transfer_status ?? '',
-    출발시각: formatTimeDisplay(entry.departure_time) || '',
-    이송병원: entry.destination_hospital ?? '',
     등록일시: entry.created_at
       ? String(entry.created_at).replace('T', ' ').slice(0, 19)
       : '',
@@ -610,51 +615,48 @@ function showLandingView() {
 function buildRowHtml(entry, indexFromNewest) {
   const triage = entry.triage_level || ''
   const { color, tColor } = triageStyle(triage)
-  const pTime = formatTimeDisplay(entry.handoff_time)
   const sTime = formatTimeDisplay(entry.departure_time)
-  const provider = escapeHtml(entry.provider_name)
   const name = escapeHtml(entry.patient_name)
   const hosp = escapeHtml(entry.destination_hospital)
-  const status = escapeHtml(entry.transfer_status)
   const triageEsc = escapeHtml(triage)
   const genDisp = displayGenderForEntry(entry)
   const ageDisp = displayAgeForEntry(entry)
   const locDisp = escapeHtml((entry.discovery_location || '').trim()) || '—'
+  const symptomDisp = escapeHtml((entry.symptom || '').trim()) || '—'
+  const vehDisp = escapeHtml((entry.transfer_vehicle || '').trim()) || '—'
 
   return `
     <td data-label="No">${indexFromNewest}</td>
     <td data-label="성명">${name || '—'}</td>
     <td data-label="성별">${genDisp}</td>
     <td data-label="연령">${ageDisp}</td>
-    <td data-label="발견장소">${locDisp}</td>
-    <td data-label="인계">${provider || '—'}<br>(${escapeHtml(pTime)})</td>
+    <td data-label="주증상">${symptomDisp}</td>
+    <td data-label="이송병원">${hosp || '—'}</td>
     <td data-label="중증도"><span class="status-badge" style="background:${color}; color:${tColor}">${triageEsc || '—'}</span></td>
-    <td data-label="이송">${status}</td>
-    <td data-label="출발">${escapeHtml(sTime)}</td>
-    <td data-label="병원">${hosp || '—'}</td>
+    <td data-label="발견지점">${locDisp}</td>
+    <td data-label="이송수단">${vehDisp}</td>
+    <td data-label="출발시간">${escapeHtml(sTime)}</td>
   `
 }
 
 function buildMobileCardHtml(entry, indexFromNewest) {
   const triage = entry.triage_level || ''
   const { color, tColor } = triageStyle(triage)
-  const pTime = formatTimeDisplay(entry.handoff_time)
   const sTime = formatTimeDisplay(entry.departure_time)
-  const provider = escapeHtml(entry.provider_name || '')
   const name = escapeHtml(entry.patient_name || '')
   const hosp = escapeHtml(entry.destination_hospital || '')
-  const status = escapeHtml(entry.transfer_status || '')
   const triageEsc = escapeHtml(triage || '—')
   const genDisp = displayGenderForEntry(entry)
   const ageDisp = displayAgeForEntry(entry)
   const loc = escapeHtml((entry.discovery_location || '').trim() || '—')
-  const pTimeEsc = escapeHtml(pTime)
+  const symptom = escapeHtml((entry.symptom || '').trim() || '—')
+  const veh = escapeHtml((entry.transfer_vehicle || '').trim() || '—')
 
-  const line2 = `<span class="ec-seg">${provider || '—'} (${pTimeEsc || '—'})</span><span class="ec-sep">|</span><span class="ec-seg"><span class="status-badge" style="background:${color};color:${tColor}">${triageEsc}</span></span><span class="ec-sep">|</span><span class="ec-seg">${status || '—'}</span><span class="ec-sep">|</span><span class="ec-seg">${escapeHtml(sTime) || '—'}</span><span class="ec-sep">|</span><span class="ec-seg">${hosp || '—'}</span>`
+  const line2 = `<span class="ec-seg">${hosp || '—'}</span><span class="ec-sep">|</span><span class="ec-seg"><span class="status-badge" style="background:${color};color:${tColor}">${triageEsc}</span></span><span class="ec-sep">|</span><span class="ec-seg">${loc}</span><span class="ec-sep">|</span><span class="ec-seg">${veh}</span><span class="ec-sep">|</span><span class="ec-seg">${escapeHtml(sTime) || '—'}</span>`
 
   const eid = entry.id != null ? String(entry.id) : ''
   return `<div class="entry-card data-row-clickable" data-entry-id="${eid}">
-    <div class="entry-card-line1"><span class="ec-no">${indexFromNewest}</span><span>${name || '—'}</span><span> · </span><span>${genDisp}</span><span> · </span><span>${ageDisp}</span><span> · </span><span class="ec-loc">${loc}</span></div>
+    <div class="entry-card-line1"><span class="ec-no">${indexFromNewest}</span><span>${name || '—'}</span><span> · </span><span>${genDisp}</span><span> · </span><span>${ageDisp}</span><span> · </span><span class="ec-symptom">${symptom}</span></div>
     <div class="entry-card-line2">${line2}</div>
   </div>`
 }
@@ -725,16 +727,24 @@ async function saveEntry() {
     transfer_status: val('transferStatus') || '미이송',
     departure_time: normalizeTimeInput(val('startTime')),
     destination_hospital: val('hospital') || null,
+    transfer_vehicle: val('transferVehicle') || null,
     incident_id: currentIncidentId,
   }
 
   const isEdit = !!editingEntryId
   setDbStatus(isEdit ? '수정 저장 중…' : '저장 중…')
 
-  const hintFn = (msg) =>
-    /patient_gender|patient_age|column|schema cache/i.test(msg || '')
-      ? ' Supabase에서 supabase/mci_add_patient_sex_age.sql 을 실행했는지 확인하세요.'
-      : ''
+  const hintFn = (msg) => {
+    const m = msg || ''
+    let h = ''
+    if (/patient_gender|patient_age/i.test(m) && /column|schema|does not exist/i.test(m)) {
+      h += ' supabase/mci_add_patient_sex_age.sql 실행 여부를 확인하세요.'
+    }
+    if (/transfer_vehicle/i.test(m)) {
+      h += ' supabase/mci_add_transfer_vehicle.sql 실행 여부를 확인하세요.'
+    }
+    return h
+  }
 
   let error = null
   if (isEdit) {

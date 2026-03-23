@@ -25,6 +25,12 @@
         
         .input-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .full-width { grid-column: span 2; }
+        /* 성명·연령·성별 — 가로 폭 좁게 */
+        .record-id-row {
+            grid-template-columns: minmax(0, 0.95fr) minmax(0, 0.55fr) minmax(0, 1.15fr);
+            align-items: end;
+        }
+        .record-id-row .col-sex .sex-group { margin-bottom: 0; }
         
         input, select, button { padding: 10px; border-radius: 5px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; }
         /* iOS: 입력 포커스 시 자동 확대 방지(16px 미만이면 줌) */
@@ -120,15 +126,15 @@
             hyphens: auto;
         }
         th { background: #f8f9fa; position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 #ddd; }
-        th:nth-child(1), td:nth-child(1) { width: 30px; }
-        th:nth-child(2), td:nth-child(2) { width: 10%; }
-        th:nth-child(3), td:nth-child(3) { width: 8%; }
-        th:nth-child(4), td:nth-child(4) { width: 8%; }
-        th:nth-child(5), td:nth-child(5) { width: 12%; }
-        th:nth-child(6), td:nth-child(6) { width: 14%; }
-        th:nth-child(7), td:nth-child(7) { width: 9%; }
-        th:nth-child(8), td:nth-child(8) { width: 7%; }
-        th:nth-child(9), td:nth-child(9) { width: 7%; }
+        th:nth-child(1), td:nth-child(1) { width: 28px; }
+        th:nth-child(2), td:nth-child(2) { width: 9%; }
+        th:nth-child(3), td:nth-child(3) { width: 6%; }
+        th:nth-child(4), td:nth-child(4) { width: 6%; }
+        th:nth-child(5), td:nth-child(5) { width: 14%; }
+        th:nth-child(6), td:nth-child(6) { width: 11%; }
+        th:nth-child(7), td:nth-child(7) { width: 8%; }
+        th:nth-child(8), td:nth-child(8) { width: 11%; }
+        th:nth-child(9), td:nth-child(9) { width: 10%; }
         th:nth-child(10), td:nth-child(10) { width: auto; }
         .status-badge { padding: 3px 6px; border-radius: 3px; font-weight: bold; color: white; display: inline-block; }
 
@@ -243,7 +249,7 @@
             font-size: 13px;
             font-weight: 800;
         }
-        .ec-loc { font-weight: 500; color: #37474f; }
+        .ec-loc, .ec-symptom { font-weight: 500; color: #37474f; }
 
         .view.hidden { display: none !important; }
 
@@ -420,6 +426,7 @@
             .container { padding: 14px; border-radius: 10px; }
             .input-grid { grid-template-columns: 1fr; }
             .full-width { grid-column: span 1; }
+            .record-id-row { grid-template-columns: 1fr; }
             .triage-group { grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .triage-btn { height: auto; min-height: 48px; font-size: 15px; }
             th, td { font-size: 10px; padding: 5px 4px; }
@@ -498,17 +505,17 @@
 
     <div id="recordFormBlock">
     <div class="section-title">1. 사상자 및 발견 정보</div>
-    <div class="input-grid">
-        <div><label>성명(국적)</label><input type="text" id="name" placeholder="홍길동"></div>
-        <div><label>연령</label><input type="text" id="ageInfo" inputmode="numeric" placeholder="예: 36" autocomplete="off"></div>
-        <div class="full-width">
+    <div class="input-grid record-id-row">
+        <div class="col-narrow"><label>성명(국적)</label><input type="text" id="name" placeholder="홍길동"></div>
+        <div class="col-narrow"><label>연령</label><input type="text" id="ageInfo" inputmode="numeric" placeholder="예: 36" autocomplete="off"></div>
+        <div class="col-sex">
             <label>성별</label>
             <div class="sex-group" role="group" aria-label="성별 선택">
                 <button type="button" class="sex-tab sex-m" data-sex="남성">남성</button>
                 <button type="button" class="sex-tab sex-f" data-sex="여성">여성</button>
             </div>
         </div>
-        <div class="full-width"><label>발견 장소</label><input type="text" id="loc" placeholder="사고현장 본관 1층"></div>
+        <div class="full-width"><label>발견지점</label><input type="text" id="loc" placeholder="사고현장 본관 1층"></div>
     </div>
 
     <div class="section-title">2. 인계 및 중증도 분류 </div>
@@ -530,7 +537,7 @@
                 <button type="button" class="triage-btn black" data-triage="사망">사망</button>
             </div>
         </div>
-        <div class="full-width"><label>주증상 (손상원인)</label><input type="text" id="symptom" placeholder="의식저하, 다발성 골절"></div>
+        <div class="full-width"><label>🩼 주증상 (손상원인)</label><input type="text" id="symptom" placeholder="의식저하, 다발성 골절"></div>
     </div>
 
     <div class="section-title">3. 이송 상태 </div>
@@ -549,7 +556,8 @@
                 <button type="button" class="btn-now" data-time-target="startTime">현재</button>
             </div>
         </div>
-        <div class="full-width"><label>이송 병원</label><input type="text" id="hospital" placeholder="강서성심병원"></div>
+        <div><label>🏥 이송 병원</label><input type="text" id="hospital" placeholder="이대서울병원"></div>
+        <div><label>🚑 이송수단</label><input type="text" id="transferVehicle" placeholder="화곡구급"></div>
     </div>
 
     <p id="dbStatus" style="margin:12px 0 0; font-size:13px; color:#555; min-height:1.2em;" aria-live="polite"></p>
@@ -569,12 +577,12 @@
                         <th>성명</th>
                         <th>성별</th>
                         <th>연령</th>
-                        <th>발견장소</th>
-                        <th>인계자(시각)</th>
-                        <th>중증도</th>
-                        <th>이송여부</th>
-                        <th>출발시각</th>
+                        <th>주증상</th>
                         <th>이송병원</th>
+                        <th>중증도</th>
+                        <th>발견지점</th>
+                        <th>이송수단</th>
+                        <th>출발시간</th>
                     </tr>
                 </thead>
                 <tbody></tbody>

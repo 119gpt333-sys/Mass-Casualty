@@ -1,5 +1,5 @@
 -- MCI 다수사상자 이송 기록 — Supabase SQL Editor에서 한 번에 실행 가능
--- 앱 폼 필드: name, ageInfo, loc, provider, provideTime, triage, symptom, transferStatus, startTime, hospital
+-- 앱 폼 필드: name, ageInfo, loc, provider, provideTime, triage, symptom, transferStatus, startTime, hospital, transferVehicle
 
 -- ---------------------------------------------------------------------------
 -- 1) 테이블
@@ -22,6 +22,7 @@ create table if not exists public.mci_casualty_entries (
   transfer_status text not null default '미이송',
   departure_time time,
   destination_hospital text,
+  transfer_vehicle text,
 
   -- 같은 사고를 묶고 싶을 때(선택). 앱에서 uuid 넣거나 나중에 컬럼 활용
   incident_id uuid,
@@ -46,6 +47,7 @@ comment on column public.mci_casualty_entries.symptom is '주증상(손상원인
 comment on column public.mci_casualty_entries.transfer_status is '이송 여부';
 comment on column public.mci_casualty_entries.departure_time is '출발 시각';
 comment on column public.mci_casualty_entries.destination_hospital is '이송 병원';
+comment on column public.mci_casualty_entries.transfer_vehicle is '이송수단(앰뷸런스 등)';
 
 -- 목록: 최신순
 create index if not exists mci_casualty_entries_created_at_idx
